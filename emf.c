@@ -425,9 +425,10 @@ void yee_b( t_emf *emf, const float dt )
     const float3* const restrict E = emf -> E;
 
 	float dt_dx = dt / emf->dx;
-
+	int i;                    									//------------------//
 	// Canonical implementation
-	for (int i=-1; i<=emf->nx; i++) {
+	#pragma omp parallel for default(shared) private(i) schedule(static)                            //-----------------//
+	for (i=-1; i<=emf->nx; i++) {
 		// B[ i ].x += 0;  // Bx does not evolve in 1D
 		B[ i ].y += (   dt_dx * ( E[i+1].z - E[ i ].z) );
 		B[ i ].z += ( - dt_dx * ( E[i+1].y - E[ i ].y) );
@@ -449,9 +450,10 @@ void yee_e( t_emf *emf, const t_current *current, const float dt )
     const float3* const restrict B = emf -> B;
     const float3* const restrict J = current -> J;
     const int nx = emf->nx;
-
+	int i;											     //-----------------//
 	// Canonical implementation
-	for (int i = 0; i <= nx+1; i++) {
+	#pragma omp parallel for default(shared) private(i) schedule(static)	                         //------------------//
+	for (i = 0; i <= nx+1; i++) {
 		E[i].x += (                                - dt * J[i].x );
 		E[i].y += ( - dt_dx * ( B[i].z - B[i-1].z) - dt * J[i].y );
 		E[i].z += ( + dt_dx * ( B[i].y - B[i-1].y) - dt * J[i].z );
@@ -477,25 +479,17 @@ void emf_update_gc( t_emf *emf )
 		// x
 
 		// lower
+		#pragma GCC unroll 4                   //----//
 		for (int i=-emf->gc[0]; i<0; i++) {
-			E[ i ].x = E[ nx + i ].x;
-			E[ i ].y = E[ nx + i ].y;
-			E[ i ].z = E[ nx + i ].z;
-
-			B[ i ].x = B[ nx + i ].x;
-			B[ i ].y = B[ nx + i ].y;
-			B[ i ].z = B[ nx + i ].z;
+			E[ i ] = E[ nx + i ];         //-----//
+            		B[ i ] = B[ nx + i ];		//----//
 		}
 
 		// upper
+		#pragma GCC unroll 4                 //-------//
 		for (int i=0; i<emf->gc[1]; i++) {
-			E[ nx + i ].x = E[ i ].x;
-			E[ nx + i ].y = E[ i ].y;
-			E[ nx + i ].z = E[ i ].z;
-
-			B[ nx + i ].x = B[ i ].x;
-			B[ nx + i ].y = B[ i ].y;
-			B[ nx + i ].z = B[ i ].z;
+			E[ nx + i ] = E[ i ];		//-----//
+                        B[ nx + i ] = B[ i ];		//-------//
 		}
 	}
 
@@ -518,19 +512,18 @@ void emf_move_window( t_emf *emf ){
 
 		// Shift data left 1 cell and zero rightmost cells
 
-		for (int i = -emf->gc[0]; i < emf->nx+emf->gc[1] - 1; i++) {
-			E[ i ] = E[ i + 1 ];
-			B[ i ] = B[ i + 1 ];
-		}
-
-	    const float3 zero_fld = {0.,0.,0.};
-		for(int i = emf->nx - 1; i < emf->nx+emf->gc[1]; i ++) {
-			E[ i ] = zero_fld;
-			B[ i ] = zero_fld;
-		}
+	    size_t size = (emf->nx + emf->gc[0] + emf->gc[1] - 1) * sizeof(float3);                    //-----//
+        
+        // E[i] = E[i+1] -> Desloca o bloco inteiro uma posição para a esquerda
+            memmove( emf->E_buf, emf->E_buf + 1, size );						//--------//
+            memmove( emf->B_buf, emf->B_buf + 1, size );						//--------//
+        
+        // Zero as células mais à direita (apenas 2 células - guard cells)
+            E[ emf->nx + emf->gc[1] - 1 ] = (float3){0.,0.,0.};						//------//
+            B[ emf->nx + emf->gc[1] - 1 ] = (float3){0.,0.,0.};						//-------//
 
 		// Increase moving window counter
-		emf -> n_move++;
+    	    emf -> n_move++;
 	}
 }
 

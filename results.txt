@@ -1,0 +1,167 @@
+=== BASELINE ===
+
+Simulation ended.
+
+Time for spec. advance = 139.355898 s
+Time for emf   advance = 38.755213 s
+Total simulation time  = 210.778478 s
+
+Particle advance [nsec/part] = 735.330128 
+Particle advance [Mpart/sec] = 1.359933 
+Starting simulation ...
+
+n = 0, t = 0.0
+Energy (fields | particles | total) = 3.000000e+02 0.000000e+00 3.000000e+02
+n = 42106, t = 40.000702
+Energy (fields | particles | total) = 2.985455e+02 1.624781e+00 3.001703e+02
+Initial energy: 3.000000e+02, Final energy: 3.001703e+02
+
+Final energy different from Initial Energy. Change in total energy is: 0.06 % 
+=== CACHE MISSES OTIMIZADO ===
+
+Simulation ended.
+
+Time for spec. advance = 139.357739 s
+Time for emf   advance = 38.756518 s
+Total simulation time  = 210.784779 s
+
+Particle advance [nsec/part] = 735.339842 
+Particle advance [Mpart/sec] = 1.359915 
+
+Simulation ended.
+
+Time for spec. advance = 139.348618 s
+Time for emf   advance = 38.738258 s
+Total simulation time  = 210.742942 s
+
+Particle advance [nsec/part] = 735.291714 
+Particle advance [Mpart/sec] = 1.360004 
+
+Simulation ended.
+
+Time for spec. advance = 139.340600 s
+Time for emf   advance = 38.737680 s
+Total simulation time  = 210.734109 s
+
+Particle advance [nsec/part] = 735.249406 
+Particle advance [Mpart/sec] = 1.360083 
+
+Simulation ended.
+
+Time for spec. advance = 139.351106 s
+Time for emf   advance = 38.748299 s
+Total simulation time  = 210.764209 s
+
+Particle advance [nsec/part] = 735.304842 
+Particle advance [Mpart/sec] = 1.359980 
+
+Simulation ended.
+
+Time for spec. advance = 139.369603 s
+Time for emf   advance = 38.772217 s
+Total simulation time  = 210.820956 s
+
+Particle advance [nsec/part] = 735.402444 
+Particle advance [Mpart/sec] = 1.359800 
+
+ Performance counter stats for './zpic' (5 runs):
+
+   128,876,894,258      cache-references                                              ( +-  0.00% )
+       655,320,071      cache-misses              #    0.508 % of all cache refs      ( +-  0.02% )
+       655,320,070      L1-dcache-load-misses                                         ( +-  0.02% )
+
+          210.7864 +- 0.0156 seconds time elapsed  ( +-  0.01% )
+
+=== OTIMIZADO ===
+
+Simulation ended.
+
+Time for spec. advance = 45.946653 s
+Time for emf   advance = 14.770348 s
+Total simulation time  = 82.132748 s
+
+Particle advance [nsec/part] = 242.443691 
+Particle advance [Mpart/sec] = 4.124669 
+Starting simulation ...
+
+n = 0, t = 0.0
+Energy (fields | particles | total) = 3.000000e+02 0.000000e+00 3.000000e+02
+n = 42106, t = 40.000702
+Energy (fields | particles | total) = 2.985474e+02 1.624787e+00 3.001722e+02
+Initial energy: 3.000000e+02, Final energy: 3.001722e+02
+
+Final energy different from Initial Energy. Change in total energy is: 0.06 % 
+
+Simulation ended.
+
+Time for spec. advance = 45.946912 s
+Time for emf   advance = 14.770654 s
+Total simulation time  = 82.133514 s
+
+Particle advance [nsec/part] = 242.445057 
+Particle advance [Mpart/sec] = 4.124646 
+Starting simulation ...
+
+n = 0, t = 0.0
+Energy (fields | particles | total) = 3.000000e+02 0.000000e+00 3.000000e+02
+n = 42106, t = 40.000702
+Energy (fields | particles | total) = 2.985474e+02 1.624787e+00 3.001722e+02
+Initial energy: 3.000000e+02, Final energy: 3.001722e+02
+
+Final energy different from Initial Energy. Change in total energy is: 0.06 % 
+=== CACHE MISSES OTIMIZADO ===
+
+Simulation ended.
+
+Time for spec. advance = 45.946088 s
+Time for emf   advance = 14.745017 s
+Total simulation time  = 82.088160 s
+
+Particle advance [nsec/part] = 242.440709 
+Particle advance [Mpart/sec] = 4.124720 
+
+Simulation ended.
+
+Time for spec. advance = 45.938548 s
+Time for emf   advance = 14.752521 s
+Total simulation time  = 82.098670 s
+
+Particle advance [nsec/part] = 242.400924 
+Particle advance [Mpart/sec] = 4.125397 
+
+Simulation ended.
+
+Time for spec. advance = 45.946376 s
+Time for emf   advance = 14.745438 s
+Total simulation time  = 82.088833 s
+
+Particle advance [nsec/part] = 242.442229 
+Particle advance [Mpart/sec] = 4.124694 
+
+Simulation ended.
+
+Time for spec. advance = 45.945899 s
+Time for emf   advance = 14.744823 s
+Total simulation time  = 82.087616 s
+
+Particle advance [nsec/part] = 242.439712 
+Particle advance [Mpart/sec] = 4.124737 
+
+Simulation ended.
+
+Time for spec. advance = 45.938622 s
+Time for emf   advance = 14.752764 s
+Total simulation time  = 82.099257 s
+
+Particle advance [nsec/part] = 242.401314 
+Particle advance [Mpart/sec] = 4.125390 
+
+ Performance counter stats for './zpic' (5 runs):
+
+    85,717,121,323      cache-references                                              ( +-  0.01% )
+       652,961,471      cache-misses              #    0.762 % of all cache refs      ( +-  0.00% )
+       652,961,471      L1-dcache-load-misses                                         ( +-  0.00% )
+
+          82.10984 +- 0.00269 seconds time elapsed  ( +-  0.00% )
+
+=== COMPARAÇÃO ===

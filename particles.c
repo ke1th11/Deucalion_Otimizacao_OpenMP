@@ -8,7 +8,7 @@
  * @copyright Copyright (c) 2022
  * 
  */
-
+#include <omp.h>                                             //--------//
 #include <stdlib.h>
 #include <math.h>
 #include <string.h>
@@ -74,6 +74,7 @@ double spec_perf( void )
 void spec_set_u( t_species* spec, const int start, const int end )
 {
 #if 0
+    #pragma omp parallel for                  //--------//	
     for (int i = start; i <= end; i++) {
         spec->part[i].ux = spec -> ufl[0] + spec -> uth[0] * rand_norm();
         spec->part[i].uy = spec -> ufl[1] + spec -> uth[1] * rand_norm();
@@ -83,12 +84,13 @@ void spec_set_u( t_species* spec, const int start, const int end )
     /**
      * Version 1 momentum initialization
      */
-
-    // Initialize thermal component
+    t_part * restrict part = spec->part;        //------//
+    const float * restrict uth = spec->uth;	//-------//
+    #pragma omp parallel for default(none) shared(part, uth)    //----//
     for (int i = start; i <= end; i++) {
-        spec->part[i].ux = spec -> uth[0] * rand_norm();
-        spec->part[i].uy = spec -> uth[1] * rand_norm();
-        spec->part[i].uz = spec -> uth[2] * rand_norm();
+        part[i].ux = uth[0] * rand_norm();	//-----//
+        part[i].uy = uth[1] * rand_norm();	//----//
+        part[i].uz = uth[2] * rand_norm();	//-----//
     }
 
     // Calculate net momentum in each cell
@@ -98,20 +100,25 @@ void spec_set_u( t_species* spec, const int start, const int end )
     // Zero momentum grids
     memset(net_u, 0, spec->nx * sizeof(float3) );
     memset(npc, 0, (spec->nx) * sizeof(int) );
-
+    #pragma omp parallel for default(none) shared(spec, net_u, npc)   //----//
     // Accumulate momentum in each cell
     for (int i = start; i <= end; i++) {
         const int idx  = spec -> part[i].ix;
-
+	
+	#pragma omp atomic           //------//
         net_u[ idx ].x += spec->part[i].ux;
+	#pragma omp atomic		//-------//
         net_u[ idx ].y += spec->part[i].uy;
+	#pragma omp atomic		//-------//
         net_u[ idx ].z += spec->part[i].uz;
-
+	
+	#pragma omp atomic		//--------//
         npc[ idx ] += 1;
     }
 
     // Normalize to the number of particles in each cell to get the
     // average momentum in each cell
+    #pragma omp parallel for default(none) shared(spec, net_u, npc)  //-----//
     for(int i =0; i< spec->nx; i++ ) {
         const float norm = (npc[ i ] > 0) ? 1.0f/npc[i] : 0;
 
@@ -119,19 +126,25 @@ void spec_set_u( t_species* spec, const int start, const int end )
         net_u[ i ].y *= norm;
         net_u[ i ].z *= norm;
     }
+    
+    const float uflx = spec -> ufl[0]; // Agora chamadas uflx/y/z para evitar conflito
+    const float ufly = spec -> ufl[1];
+    const float uflz = spec -> ufl[2];
+
 
     // Subtract average momentum and add fluid component
+    #pragma omp parallel for default(none) shared(spec, net_u)        //---------//
     for (int i = start; i <= end; i++) {
         const int idx  = spec -> part[i].ix;
 
-        spec->part[i].ux += spec -> ufl[0] - net_u[ idx ].x;
-        spec->part[i].uy += spec -> ufl[1] - net_u[ idx ].y;
-        spec->part[i].uz += spec -> ufl[2] - net_u[ idx ].z;
+        spec->part[i].ux += uflx - net_u[ idx ].x;
+        spec->part[i].uy += ufly - net_u[ idx ].y;
+        spec->part[i].uz += uflz - net_u[ idx ].z;
     }
 
     // Free temporary memory
-    free( npc );
-    free( net_u );
+    free(npc);
+    free(net_u);
 
 #endif
 }
@@ -704,10 +717,10 @@ void dep_current_esk( int ix0, int di,
  * @param qvz       Z current ( q * vz )
  * @param current   Electric current density
  */
-void dep_current_zamb( int ix0, int di,
+static inline void dep_current_zamb( int ix0, int di,                      //--------------------//
                         float x0, float dx,
                         float qnx, float qvy, float qvz,
-                        t_current *current )
+                        t_current* __restrict current )
 {
     // Split the particle trajectory
     typedef struct {
@@ -724,8 +737,8 @@ void dep_current_zamb( int ix0, int di,
 
     vp[0].x1 = x0+dx;
 
-    vp[0].qvy = qvy/2.0;
-    vp[0].qvz = qvz/2.0;
+    vp[0].qvy = qvy * 0.5f;   //--------//
+    vp[0].qvz = qvz * 0.5f;   //--------//  
 
     vp[0].ix = ix0;
 
@@ -736,9 +749,9 @@ void dep_current_zamb( int ix0, int di,
         int ib = ( di == 1 );
 
         float delta = (x0+dx-ib)/dx;
-
+	float inv_delta = 1.0f - delta;       //-------//
         // Add new particle
-        vp[1].x0 = 1-ib;
+        vp[1].x0 = 1.0f-ib;     //-------//
         vp[1].x1 = (x0 + dx) - di;
         vp[1].dx = dx*delta;
         vp[1].ix = ix0 + di;
@@ -748,10 +761,10 @@ void dep_current_zamb( int ix0, int di,
 
         // Correct previous particle
         vp[0].x1 = ib;
-        vp[0].dx *= (1.0f-delta);
+        vp[0].dx *= inv_delta;       //------//
 
-        vp[0].qvy *= (1.0f-delta);
-        vp[0].qvz *= (1.0f-delta);
+        vp[0].qvy *= inv_delta;       //------//
+        vp[0].qvz *= inv_delta;       //------//
 
         vnp++;
 
@@ -759,21 +772,22 @@ void dep_current_zamb( int ix0, int di,
 
     // Deposit virtual particle currents
     float3* restrict const J = current -> J;
-
+    #pragma GCC unroll 2                                            //-------------------//
     for (int k = 0; k < vnp; k++) {
-        float S0x[2], S1x[2];
+        float s0_0 = 1.0f - vp[k].x0;          //------//
+        float s0_1 = vp[k].x0;			//------//
+        float s1_0 = 1.0f - vp[k].x1;		//-------//
+        float s1_1 = vp[k].x1;			//--------//
 
-        S0x[0] = 1.0f - vp[k].x0;
-        S0x[1] = vp[k].x0;
+	J[ vp[k].ix ].x += qnx * vp[k].dx;    //-----//
 
-        S1x[0] = 1.0f - vp[k].x1;
-        S1x[1] = vp[k].x1;
+	float w0 = (s0_0 + s1_0 + (s0_0 - s1_0) * 0.5f);	//---------//
+        float w1 = (s0_1 + s1_1 + (s0_1 - s1_1) * 0.5f);	//--------//
 
-        J[ vp[k].ix     ].x += qnx * vp[k].dx;
-        J[ vp[k].ix     ].y += vp[k].qvy * (S0x[0]+S1x[0]+(S0x[0]-S1x[0])/2.0f);
-        J[ vp[k].ix + 1 ].y += vp[k].qvy * (S0x[1]+S1x[1]+(S0x[1]-S1x[1])/2.0f);
-        J[ vp[k].ix     ].z += vp[k].qvz * (S0x[0]+S1x[0]+(S0x[0]-S1x[0])/2.0f);
-        J[ vp[k].ix  +1 ].z += vp[k].qvz * (S0x[1]+S1x[1]+(S0x[1]-S1x[1])/2.0f);
+        J[ vp[k].ix     ].y += vp[k].qvy * w0;		//-----------//
+        J[ vp[k].ix + 1 ].y += vp[k].qvy * w1;		//---------//
+        J[ vp[k].ix     ].z += vp[k].qvz * w0;       //-------//
+        J[ vp[k].ix + 1 ].z += vp[k].qvz * w1;       //---------//
     }
 
 }
@@ -861,8 +875,8 @@ void spec_sort( t_species* spec )
  * @param Ep    E-field interpolated at particle position
  * @param Bp    B-field interpolated at particle position
  */
-void interpolate_fld( const float3* restrict const E, const float3* restrict const B,
-              const t_part* restrict const part, float3* restrict const Ep, float3* restrict const Bp )
+static inline void interpolate_fld( const float3* restrict E, const float3* restrict B,              //---------// //----------//
+              const t_part* restrict part, float3* restrict Ep, float3* restrict Bp )
 {
     int i, ih;
     float w1, w1h;
@@ -893,7 +907,7 @@ void interpolate_fld( const float3* restrict const E, const float3* restrict con
  * @param x         End particle position, normalized to cell size
  * @return ltrim    Number of cells moved, {-1,0,1}
  */
-int ltrim( float x )
+static inline int ltrim( float x )                                     //------------//
 {
     return ( x >= 1.0f ) - ( x < 0.0f );
 }
@@ -916,7 +930,7 @@ int ltrim( float x )
  * @param emf       EM fields
  * @param current   Current density
  */
-void spec_advance( t_species* spec, t_emf* emf, t_current* current )
+void spec_advance( t_species* __restrict spec, t_emf* __restrict emf, t_current* __restrict current )           //-----------//
 {
 
     uint64_t t0;
@@ -933,6 +947,7 @@ void spec_advance( t_species* spec, t_emf* emf, t_current* current )
     double energy = 0;
 
     // Advance particles
+    #pragma omp parallel for schedule(static) reduction(+:energy)                //-----------------//	
     for (int i=0; i<spec->np; i++) {
 
         float3 Ep, Bp;
@@ -946,9 +961,9 @@ void spec_advance( t_species* spec, t_emf* emf, t_current* current )
         float dx;
 
         // Load particle momenta
-        ux = spec -> part[i].ux;
+        ux = spec -> part[i].ux; 	
         uy = spec -> part[i].uy;
-        uz = spec -> part[i].uz;
+        uz = spec -> part[i].uz;		
 
         // interpolate fields
         interpolate_fld( emf -> E_part, emf -> B_part, &spec -> part[i], &Ep, &Bp );
@@ -959,25 +974,27 @@ void spec_advance( t_species* spec, t_emf* emf, t_current* current )
         Ep.y *= tem;
         Ep.z *= tem;
 
-        utx = ux + Ep.x;
-        uty = uy + Ep.y;
-        utz = uz + Ep.z;
+        utx = ux + Ep.x;  
+        uty = uy + Ep.y;       
+        utz = uz + Ep.z;          
 
         // Perform first half of the rotation
         // Get time centered gamma
-        u2 = utx*utx + uty*uty + utz*utz;
-        gamma = sqrtf( 1 + u2 );
+        u2 = utx*utx + uty*uty + utz*utz;     
+        gamma = sqrtf( 1.0f + u2 );             
 
         // Accumulate time centered energy
-        energy += u2 / ( 1 + gamma );
-
-        gtem = tem / gamma;
+        energy += u2 / ( 1.0f + gamma );              //-------//
+	
+	float inv_gamma = 1.0f / gamma;                     //-------------//
+        gtem = tem * inv_gamma;			      //-------------//	
 
         Bp.x *= gtem;
         Bp.y *= gtem;
         Bp.z *= gtem;
-
-        otsq = 2.0f / ( 1.0f + Bp.x*Bp.x + Bp.y*Bp.y + Bp.z*Bp.z );
+	
+	float denom = 1.0f + Bp.x*Bp.x + Bp.y*Bp.y + Bp.z*Bp.z;         //-----//
+        otsq = 2.0f * (1.0f / denom);              //--------//
 
         ux = utx + uty*Bp.z - utz*Bp.y;
         uy = uty + utz*Bp.x - utx*Bp.z;
@@ -1004,13 +1021,13 @@ void spec_advance( t_species* spec, t_emf* emf, t_current* current )
         spec -> part[i].uz = uz;
 
         // push particle
-        rg = 1.0f / sqrtf(1.0f + ux*ux + uy*uy + uz*uz);
+        rg = 1.0f / sqrtf(1.0f + ux*ux + uy*uy + uz*uz);              
 
-        dx = dt_dx * rg * ux;
+        dx = dt_dx * rg * ux;     
 
-        x1 = spec -> part[i].x + dx;
+        x1 = spec -> part[i].x + dx;       
 
-        di = ltrim(x1);
+        di = ltrim(x1);        
 
         x1 -= di;
 
@@ -1023,16 +1040,16 @@ void spec_advance( t_species* spec, t_emf* emf, t_current* current )
         // 				 qnx, qvy, qvz,
         // 				 current );
 
-        dep_current_zamb( spec -> part[i].ix, di,
+        dep_current_zamb( spec -> part[i].ix, di,                               
                          spec -> part[i].x, dx,
                          qnx, qvy, qvz,
-                         current );
+                         current );             
 
-        // Store results
-        spec -> part[i].x = x1;
+    	// Store results
+    	spec -> part[i].x = x1;
         spec -> part[i].ix += di;
-
-    }
+        
+    }	                                             
 
     // Store energy
     spec -> energy = spec-> q * spec -> m_q * energy * spec -> dx;

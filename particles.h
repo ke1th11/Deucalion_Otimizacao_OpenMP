@@ -91,7 +91,7 @@ typedef struct Species {
 	// Particles
 	t_part *part;	///< Particle buffer
 	int np;			///< Number of particles in buffer
-	int np_max;		///< Maximum number of particles in buffer
+	int np_max;	///< Maximum number of particles in buffer
 
 	/// mass over charge ratio
 	float m_q;

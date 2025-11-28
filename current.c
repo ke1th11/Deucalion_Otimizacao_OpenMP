@@ -18,7 +18,7 @@
 #include "zdf.h"
 
 
-void current_smooth( t_current* const current );
+static inline void current_smooth( t_current* const current );     //--------//
 
 /**
  * @brief Initializes Electric current density object
@@ -109,24 +109,24 @@ void current_zero( t_current *current )
  * 
  * @param current Electric current density
  */
-void current_update_gc( t_current *current )
+static inline void current_update_gc( t_current * __restrict current )     //----//
 {
     if ( current -> bc_type == CURRENT_BC_PERIODIC ) {
-        float3* restrict const J = current -> J;
+        float3* __restrict const J = current -> J;        //------//
         const int nx = current -> nx;
+	const int gc0 = current->gc[0];          //-----//
+        const int gc1 = current->gc[1];          //-----//
 
         // lower - add the values from upper boundary ( both gc and inside box )
-        for (int i=-current->gc[0]; i<current->gc[1]; i++) {
+        for (int i = -gc0; i < gc1; i++) {     //------//
             J[ i ].x += J[ nx + i ].x;
             J[ i ].y += J[ nx + i ].y;
             J[ i ].z += J[ nx + i ].z;
         }
         
         // upper - just copy the values from the lower boundary 
-        for (int i=-current->gc[0]; i<current->gc[1]; i++) {
-            J[ nx + i ].x = J[ i ].x;
-            J[ nx + i ].y = J[ i ].y;
-            J[ nx + i ].z = J[ i ].z;
+        for (int i = -gc0; i < gc1; i++) {       //-----//
+            J[ nx + i ] = J[ i ];                 //-----//
         }
     }
 }
@@ -177,22 +177,25 @@ void current_report( const t_current *current, const int jc )
 
     switch (jc) {
         case 0:
+	    #pragma omp parallel for     //-----//
             for ( int i = 0; i < current->nx; i++ ) {
                 buf[i] = f[i].x;
             }
             break;
         case 1:
+	    #pragma omp parallel    //-----//
             for ( int i = 0; i < current->nx; i++ ) {
                 buf[i] = f[i].y;
             }
             break;
         case 2:
+	    #pragma omp parallel for      //----//
             for ( int i = 0; i < current->nx; i++ ) {
                 buf[i] = f[i].z;
             }
             break;
+    
     }
-
 	char vfname[16];	// Dataset name
 	char vflabel[16];	// Dataset label (for plots)
 
@@ -241,12 +244,12 @@ void current_report( const t_current *current, const int jc )
  * @param sa a value of the compensator kernel
  * @param sb b value of the compensator kernel
  */
-void get_smooth_comp( int n, float* sa, float* sb) {
+static inline void get_smooth_comp( int n, float* sa, float* sb) {    //--//
     float a,b,total;
 
-    a = -1;
-    b = (4.0 + 2.0*n)/n;
-    total = 2*a + b;
+    a = -1;                   //-----//
+    b = (4.0f + 2.0f*n)/n;    //-----//
+    total = 2.0f*a + b;       //-----//
 
     *sa = a / total;
     *sb = b / total;
@@ -262,29 +265,51 @@ void get_smooth_comp( int n, float* sa, float* sb) {
  * @param sa kernel a value
  * @param sb kernel b value
  */
-void kernel_x( t_current* const current, const float sa, const float sb ){
+static inline void kernel_x( t_current* __restrict current, const float sa, const float sb ){          //-------//
+                   
+    float3* __restrict const J = current -> J;          //-----//
+    const int nx = current -> nx;      //------//
+    //float3 fl = J[-1];
+    //float3 f0 = J[ 0];
+    //#pragma GCC unroll 4                    //------------//
+    
+    float3 J_new[nx];                 //-----//
 
-    float3* restrict const J = current -> J;
+    #pragma omp parallel for default(none) shared(current, J_new)    //-----//
+    for( int i = 0; i < nx; i++) {             //--------//
 
-    float3 fl = J[-1];
-    float3 f0 = J[ 0];
+        //float3 fu = J[i + 1];
 
-    for( int i = 0; i < current -> nx; i++) {
+        //float3 fs;
 
-        float3 fu = J[i + 1];
+        //fs.x = sa * (fl.x + fu.x) + sb * f0.x;
+        //fs.y = sa * (fl.y + fu.y) + sb * f0.y;
+        //fs.z = sa * (fl.z + fu.z) + sb * f0.z;
 
-        float3 fs;
+        //J[i] = fs;
 
-        fs.x = sa * fl.x + sb * f0.x + sa * fu.x;
-        fs.y = sa * fl.y + sb * f0.y + sa * fu.y;
-        fs.z = sa * fl.z + sb * f0.z + sa * fu.z;
+        //fl = f0;
+        //f0 = fu;
 
-        J[i] = fs;
 
-        fl = f0;
-        f0 = fu;
+	float3 fl_i = J[i - 1]; // Lê o ponto anterior		//-----//
+        float3 f0_i = J[i];     // Lê o ponto central		//-----//
+        float3 fu_i = J[i + 1]; // Lê o ponto seguinte		//-----//
 
+        float3 fs;						//-----//
+
+        fs.x = sa * (fl_i.x + fu_i.x) + sb * f0_i.x;		//-----//
+        fs.y = sa * (fl_i.y + fu_i.y) + sb * f0_i.y;		//-----//
+        fs.z = sa * (fl_i.z + fu_i.z) + sb * f0_i.z;		//-----//
+
+        J_new[i] = fs; 				//--------//
     }
+
+
+    #pragma omp parallel for default(none) shared(J_new)     //---//
+    for( int i = 0; i < nx; i++) {				//-----//
+        J[i] = J_new[i];					//-----//
+    }								//------//
 
     // Update x boundaries for periodic boundaries
     if ( current -> bc_type == CURRENT_BC_PERIODIC ) {
@@ -309,24 +334,26 @@ void kernel_x( t_current* const current, const float sa, const float sb ){
  * 
  * @param current Electric current density
  */
-void current_smooth( t_current* const current ) {
+static inline void current_smooth( t_current* __restrict current ) {  //----//
+    // Se não há filtro, sai logo (Branch prediction ajuda aqui)
+    if ( current -> smooth.xtype == NONE ) return;          //------//
 
     // filter kernel [sa, sb, sa]
     float sa, sb;
 
-    // x-direction filtering
-    if ( current -> smooth.xtype != NONE ) {
-        // binomial filter
-        sa = 0.25; sb = 0.5;
-        for( int i = 0; i < current -> smooth.xlevel; i++) {
-            kernel_x( current, 0.25, 0.5 );
-        }
+    sa = 0.25f;      //------//
+    sb = 0.5f;       //------//
 
-        // Compensator
-        if ( current -> smooth.xtype == COMPENSATED ) {
-            get_smooth_comp( current -> smooth.xlevel, &sa, &sb );
-            kernel_x( current, sa, sb );
-        }
+    // x-direction filtering
+    const int xlevel = current -> smooth.xlevel;    //----//
+    for( int i = 0; i < xlevel; i++) {              //-----//
+        kernel_x( current, 0.25f, 0.5f );           //------//
+    }
+
+    // Compensator
+    if ( current -> smooth.xtype == COMPENSATED ) {
+       get_smooth_comp( xlevel, &sa, &sb );      //------//
+       kernel_x( current, sa, sb );
     }
 
 }
