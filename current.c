@@ -275,7 +275,7 @@ static inline void kernel_x( t_current* __restrict current, const float sa, cons
     
     float3 J_new[nx];                 //-----//
 
-    #pragma omp parallel for default(none) shared(current, J_new)    //-----//
+    #pragma omp parallel for default(none) shared(current, J, J_new, nx, sa, sb)    //-----//
     for( int i = 0; i < nx; i++) {             //--------//
 
         //float3 fu = J[i + 1];
@@ -306,7 +306,7 @@ static inline void kernel_x( t_current* __restrict current, const float sa, cons
     }
 
 
-    #pragma omp parallel for default(none) shared(J_new)     //---//
+    #pragma omp parallel for default(none) shared(J, J_new, nx)     //---//
     for( int i = 0; i < nx; i++) {				//-----//
         J[i] = J_new[i];					//-----//
     }								//------//

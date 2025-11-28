@@ -86,7 +86,7 @@ void spec_set_u( t_species* spec, const int start, const int end )
      */
     t_part * restrict part = spec->part;        //------//
     const float * restrict uth = spec->uth;	//-------//
-    #pragma omp parallel for default(none) shared(part, uth)    //----//
+    #pragma omp parallel for default(none) shared(part, uth, start, end)    //----//
     for (int i = start; i <= end; i++) {
         part[i].ux = uth[0] * rand_norm();	//-----//
         part[i].uy = uth[1] * rand_norm();	//----//
@@ -100,7 +100,7 @@ void spec_set_u( t_species* spec, const int start, const int end )
     // Zero momentum grids
     memset(net_u, 0, spec->nx * sizeof(float3) );
     memset(npc, 0, (spec->nx) * sizeof(int) );
-    #pragma omp parallel for default(none) shared(spec, net_u, npc)   //----//
+    #pragma omp parallel for default(none) shared(spec, net_u, npc, start, end)   //----//
     // Accumulate momentum in each cell
     for (int i = start; i <= end; i++) {
         const int idx  = spec -> part[i].ix;
@@ -133,7 +133,7 @@ void spec_set_u( t_species* spec, const int start, const int end )
 
 
     // Subtract average momentum and add fluid component
-    #pragma omp parallel for default(none) shared(spec, net_u)        //---------//
+    #pragma omp parallel for default(none) shared(spec, net_u, start, end, uflx, ufly, uflz)        //---------//
     for (int i = start; i <= end; i++) {
         const int idx  = spec -> part[i].ix;
 
