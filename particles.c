@@ -86,6 +86,7 @@ void spec_set_u( t_species* spec, const int start, const int end )
      */
     t_part * restrict part = spec->part;        //------//
     const float * restrict uth = spec->uth;	//-------//
+    
     #pragma omp parallel for default(none) shared(part, uth, start, end)    //----//
     for (int i = start; i <= end; i++) {
         part[i].ux = uth[0] * rand_norm();	//-----//
@@ -100,19 +101,20 @@ void spec_set_u( t_species* spec, const int start, const int end )
     // Zero momentum grids
     memset(net_u, 0, spec->nx * sizeof(float3) );
     memset(npc, 0, (spec->nx) * sizeof(int) );
+
     #pragma omp parallel for default(none) shared(spec, net_u, npc, start, end)   //----//
     // Accumulate momentum in each cell
     for (int i = start; i <= end; i++) {
         const int idx  = spec -> part[i].ix;
 	
-	#pragma omp atomic           //------//
+        #pragma omp atomic           //------//
         net_u[ idx ].x += spec->part[i].ux;
-	#pragma omp atomic		//-------//
+        #pragma omp atomic		//-------//
         net_u[ idx ].y += spec->part[i].uy;
-	#pragma omp atomic		//-------//
+        #pragma omp atomic		//-------//
         net_u[ idx ].z += spec->part[i].uz;
 	
-	#pragma omp atomic		//--------//
+        #pragma omp atomic		//--------//
         npc[ idx ] += 1;
     }
 
@@ -126,7 +128,7 @@ void spec_set_u( t_species* spec, const int start, const int end )
         net_u[ i ].y *= norm;
         net_u[ i ].z *= norm;
     }
-    
+
     const float uflx = spec -> ufl[0]; // Agora chamadas uflx/y/z para evitar conflito
     const float ufly = spec -> ufl[1];
     const float uflz = spec -> ufl[2];
@@ -532,6 +534,14 @@ void spec_new( t_species* spec, char name[], const float m_q, const int ppc,
     strncpy( spec -> name, name, MAX_SPNAME_LEN );
 
     spec->nx = nx;
+    
+    spec->net_u = (float3*) malloc( spec->nx * sizeof(float3) );		//------//
+    spec->npc   = (int*)    malloc( spec->nx * sizeof(int) );			//-----//
+    if (!spec->net_u || !spec->npc) {						//------//
+        fprintf(stderr, "malloc failed in spec_new\n");				//------//
+        exit(1);								//------//
+    }										//------//
+
     spec->ppc = ppc;
     npc = ppc;
 
@@ -633,8 +643,14 @@ void spec_move_window( t_species *spec ){
  */
 void spec_delete( t_species* spec )
 {
+
     free(spec->part);
     spec->np = -1;
+
+    free(spec->net_u);				//------//
+    free(spec->npc);				//-----//
+    spec->net_u = NULL;				//-----//
+    spec->npc = NULL;				//------//
 }
 
 /*********************************************************************************************

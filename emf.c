@@ -15,6 +15,8 @@
 #include <string.h>
 #include <math.h>
 
+
+
 #include "emf.h"
 #include "zdf.h"
 #include "timer.h"
@@ -154,7 +156,7 @@ void emf_delete( t_emf *emf )
  * @param z 		Longitudinal position
  * @return 			Envelope value
  */
-float lon_env( const t_emf_laser* const laser, const float z )
+float lon_env( const t_emf_laser* const laser, const float z )     //----//
 {
 
 	if ( z > laser -> start ) {
@@ -176,7 +178,7 @@ float lon_env( const t_emf_laser* const laser, const float z )
 	}
 
 	// Before laser
-	return 0.0;
+    	return 0.0f;
 }
 
 /**
@@ -419,8 +421,12 @@ void mur_abc( t_emf *emf ) {
  * @param emf 	EM fields
  * @param dt 	Time step
  */
+
+
+
 void yee_b( t_emf *emf, const float dt )
 {
+    
     float3* const restrict B = emf -> B;
     const float3* const restrict E = emf -> E;
 
@@ -433,6 +439,7 @@ void yee_b( t_emf *emf, const float dt )
 		B[ i ].y += (   dt_dx * ( E[i+1].z - E[ i ].z) );
 		B[ i ].z += ( - dt_dx * ( E[i+1].y - E[ i ].y) );
 	}
+    
 }
 
 /**
@@ -444,6 +451,7 @@ void yee_b( t_emf *emf, const float dt )
  */
 void yee_e( t_emf *emf, const t_current *current, const float dt )
 {
+    
 	float dt_dx = dt / emf->dx;
 
     float3* const restrict E = emf -> E;
@@ -458,7 +466,7 @@ void yee_e( t_emf *emf, const t_current *current, const float dt )
 		E[i].y += ( - dt_dx * ( B[i].z - B[i-1].z) - dt * J[i].y );
 		E[i].z += ( + dt_dx * ( B[i].y - B[i-1].y) - dt * J[i].z );
 	}
-
+   
 }
 
 /**
@@ -538,8 +546,10 @@ void emf_move_window( t_emf *emf ){
  * @param emf 		EM fields
  * @param current 	Electric current density
  */
+
 void emf_advance( t_emf *emf, const t_current *current )
 {
+	
 	uint64_t t0 = timer_ticks();
 	const float dt = emf->dt;
 
@@ -580,8 +590,10 @@ void emf_advance( t_emf *emf, const t_current *current )
  * @param[in] emf EM field
  * @param[out] energy Energy values vector
  */
-void emf_get_energy( const t_emf *emf, double energy[] )
+
+void emf_get_energy( const t_emf *emf, double energy[] )    
 {
+    
 	int i;
     float3* const restrict E = emf -> E;
     float3* const restrict B = emf -> B;
@@ -598,7 +610,7 @@ void emf_get_energy( const t_emf *emf, double energy[] )
 	}
 
 	for( i = 0; i<6; i++) energy[i] *= 0.5 * emf -> dx;
-
+   
 }
 
 /*********************************************************************************************

@@ -84,6 +84,9 @@ enum part_boundary {
  * 
  */
 typedef struct Species {
+        
+	float3 *net_u;   			//-------//
+	int    *npc;				//-------//
 
 	/// Species name
 	char name[MAX_SPNAME_LEN+1];

@@ -36,9 +36,9 @@ void current_new( t_current *current, int nx, float box, float dt )
     // Allocate global array
     size_t size;
     
-    size = gc[0] + nx + gc[1];
+    size = gc[0] + nx + gc[1];					
     
-    current->J_buf = malloc( size * sizeof( float3 ) );
+    current->J_buf = malloc( size * sizeof( float3 ) );               
     assert( current->J_buf );
 
     // store nx and gc values
@@ -79,10 +79,9 @@ void current_new( t_current *current, int nx, float box, float dt )
  */
 void current_delete( t_current *current )
 {
-    free( current->J_buf );
+    free( current->J_buf );						
     
     current->J_buf = NULL;
-    
 }
 
 /**
@@ -91,13 +90,14 @@ void current_delete( t_current *current )
  * @param current   Electric current density
  */
 void current_zero( t_current *current )
-{
-    // zero fields
-    size_t size;
+{   
+    const int total_size = current->gc[0] + current->nx + current->gc[1];
+    float3 * __restrict J_buf = current->J_buf;
     
-    size = (current->gc[0] + current->nx + current->gc[1]) * sizeof( float3 );
-    memset( current->J_buf, 0, size );
-    
+    #pragma omp parallel for simd
+    for (int i = 0; i < total_size; i++) {
+        J_buf[i].x = J_buf[i].y = J_buf[i].z = 0.0f;
+    }
 }
 
 /**
@@ -173,23 +173,23 @@ void current_report( const t_current *current, const int jc )
 
     // Pack the information
     float buf[current->nx];
-    float3 *f = current->J;
+    float3 * __restrict f = current->J;     //----//
 
     switch (jc) {
         case 0:
-	    #pragma omp parallel for     //-----//
+	    #pragma omp parallel for simd    //-----//
             for ( int i = 0; i < current->nx; i++ ) {
                 buf[i] = f[i].x;
             }
             break;
         case 1:
-	    #pragma omp parallel    //-----//
+	    #pragma omp parallel for simd  //-----//
             for ( int i = 0; i < current->nx; i++ ) {
                 buf[i] = f[i].y;
             }
             break;
         case 2:
-	    #pragma omp parallel for      //----//
+	    #pragma omp parallel for simd //----//
             for ( int i = 0; i < current->nx; i++ ) {
                 buf[i] = f[i].z;
             }
@@ -245,14 +245,14 @@ void current_report( const t_current *current, const int jc )
  * @param sb b value of the compensator kernel
  */
 static inline void get_smooth_comp( int n, float* sa, float* sb) {    //--//
-    float a,b,total;
+    float a,b,total;		//------//
 
     a = -1;                   //-----//
     b = (4.0f + 2.0f*n)/n;    //-----//
     total = 2.0f*a + b;       //-----//
 
-    *sa = a / total;
-    *sb = b / total;
+    *sa = a / total;		//-------//
+    *sb = b / total;		//------//
 }
 
 /**
@@ -273,24 +273,10 @@ static inline void kernel_x( t_current* __restrict current, const float sa, cons
     //float3 f0 = J[ 0];
     //#pragma GCC unroll 4                    //------------//
     
-    float3 J_new[nx];                 //-----//
+    float3 J_new[nx];             //-------//
 
     #pragma omp parallel for default(none) shared(current, J, J_new, nx, sa, sb)    //-----//
     for( int i = 0; i < nx; i++) {             //--------//
-
-        //float3 fu = J[i + 1];
-
-        //float3 fs;
-
-        //fs.x = sa * (fl.x + fu.x) + sb * f0.x;
-        //fs.y = sa * (fl.y + fu.y) + sb * f0.y;
-        //fs.z = sa * (fl.z + fu.z) + sb * f0.z;
-
-        //J[i] = fs;
-
-        //fl = f0;
-        //f0 = fu;
-
 
 	float3 fl_i = J[i - 1]; // Lê o ponto anterior		//-----//
         float3 f0_i = J[i];     // Lê o ponto central		//-----//
@@ -303,6 +289,7 @@ static inline void kernel_x( t_current* __restrict current, const float sa, cons
         fs.z = sa * (fl_i.z + fu_i.z) + sb * f0_i.z;		//-----//
 
         J_new[i] = fs; 				//--------//
+
     }
 
 
@@ -320,7 +307,6 @@ static inline void kernel_x( t_current* __restrict current, const float sa, cons
             J[ current->nx + i ] = J[ i ];
     }
 
-
 }
 
 /**
@@ -335,6 +321,7 @@ static inline void kernel_x( t_current* __restrict current, const float sa, cons
  * @param current Electric current density
  */
 static inline void current_smooth( t_current* __restrict current ) {  //----//
+    
     // Se não há filtro, sai logo (Branch prediction ajuda aqui)
     if ( current -> smooth.xtype == NONE ) return;          //------//
 
@@ -355,6 +342,5 @@ static inline void current_smooth( t_current* __restrict current ) {  //----//
        get_smooth_comp( xlevel, &sa, &sb );      //------//
        kernel_x( current, sa, sb );
     }
-
 }
 
