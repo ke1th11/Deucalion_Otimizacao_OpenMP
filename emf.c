@@ -451,8 +451,8 @@ void yee_b( t_emf *emf, const float dt )
  */
 void yee_e( t_emf *emf, const t_current *current, const float dt )
 {
-    
-	float dt_dx = dt / emf->dx;
+    	
+    float dt_dx = dt / emf->dx;
 
     float3* const restrict E = emf -> E;
     const float3* const restrict B = emf -> B;
@@ -466,7 +466,7 @@ void yee_e( t_emf *emf, const t_current *current, const float dt )
 		E[i].y += ( - dt_dx * ( B[i].z - B[i-1].z) - dt * J[i].y );
 		E[i].z += ( + dt_dx * ( B[i].y - B[i-1].y) - dt * J[i].z );
 	}
-   
+    
 }
 
 /**

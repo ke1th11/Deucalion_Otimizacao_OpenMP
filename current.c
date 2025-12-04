@@ -10,7 +10,7 @@
  */
 
 #include "current.h"
-
+#include <omp.h>			//------//
 #include <stdlib.h>
 #include <assert.h>
 #include <string.h>
@@ -266,7 +266,6 @@ static inline void get_smooth_comp( int n, float* sa, float* sb) {    //--//
  * @param sb kernel b value
  */
 static inline void kernel_x( t_current* __restrict current, const float sa, const float sb ){          //-------//
-                   
     float3* __restrict const J = current -> J;          //-----//
     const int nx = current -> nx;      //------//
     //float3 fl = J[-1];
