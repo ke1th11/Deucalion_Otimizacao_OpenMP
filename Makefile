@@ -1,8 +1,8 @@
 # GCC options
 CC = gcc
-CFLAGS = -Ofast -g -std=c99 -pedantic -Wall  
+CFLAGS = -Ofast -g -std=c99 -pedantic -Wall -fopenmp -march=native  
 #CFLAGS = -Kfast -std=c99 
-LDFLAGS = -lm 
+LDFLAGS = -lm -fopenmp
 
 #Debug options
 #CFLAGS = -g -Og -std=c99 -pedantic -fsanitize=undefined -fsanitize=address
@@ -14,8 +14,8 @@ LDFLAGS = -lm
 
 # Clang options
 #CC = clang
-#CFLAGS = -Ofast -std=c99 -pedantic
-#LDFLAGS = -lm
+#CFLAGS = -Ofast -g -std=c99 -pedantic -Wall -fopenmp -march=native
+#LDFLAGS = -lm -fopenmp
 
 
 SOURCE = current.c emf.c particles.c random.c timer.c main.c simulation.c zdf.c
@@ -45,3 +45,8 @@ clean:
 	@touch $(TARGET) $(OBJ)
 	rm -f $(TARGET) $(OBJ)
 	rm -rf $(DOCSBASE)
+
+export OMP_NUM_THREADS ?= 16
+
+run: all
+	./zpic
